@@ -1,0 +1,62 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Virtualenv / env files
+venv/
+.venv/
+env/
+ENV/
+venv.bak/
+.env
+.env.*
+
+# IDE / editor
+.vscode/
+.idea/
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and test outputs
+*.log
+.coverage
+coverage.xml
+
+# TensorBoard / training runs
+runs/
+runs_fire/
+events.out.tfevents*
+results.csv
+
+# Model weights / checkpoints
+*.pt
+*.pth
+**/weights/
+
+# Large outputs / temp frames / debug
+outputs/
+temp_frames/
+debug_output/
+
+# Datasets (optional — uncomment if datasets are large)
+
+datasets/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Databases
+*.sqlite
+*.db
+
+# Jupyter
+.ipynb_checkpoints

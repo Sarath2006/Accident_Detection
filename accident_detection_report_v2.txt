@@ -1,0 +1,21 @@
+================================================================================
+ACCIDENT DETECTION REPORT
+================================================================================
+Generated: 2026-02-14 14:57:12
+Total Videos Processed: 1
+================================================================================
+
+SUMMARY: 1 accident(s) detected out of 1 video(s)
+
+Video 1: minor.mp4
+  Status: ACCIDENT DETECTED
+  Category: vidoes
+  Severity: SEVERE
+  Confidence: 90.0%
+  Vehicles: car#0, car#2, truck#1, car#3
+  Frame: outputs/accident_frames/minor_frame_18.jpg
+  Time: 2026-02-14 14:57:12
+
+================================================================================
+END OF REPORT
+================================================================================

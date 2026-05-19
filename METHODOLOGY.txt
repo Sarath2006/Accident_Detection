@@ -1,0 +1,107 @@
+\section{Methodology}
+
+This section presents the complete methodology of the proposed AI-based road accident and hazard detection system. The system is designed as an end-to-end intelligent video analysis pipeline that transforms raw road surveillance footage into structured accident decisions, severity estimation, and forensic evidence. The methodology integrates classical computer vision techniques, deep learning models, temporal reasoning, and physics-based analysis to ensure robustness, interpretability, and real-world applicability.
+
+The overall approach follows a modular and hierarchical design philosophy, where each processing stage contributes a specific form of evidence toward the final decision. Rather than relying on a single model or heuristic, the system fuses multiple independent signals derived from motion dynamics, spatial interactions, and semantic visual patterns. This multi-evidence design significantly improves reliability under challenging traffic conditions such as dense congestion, low illumination, occlusion, and camera instability.
+
+The processing pipeline consists of video ingestion, data preprocessing, vehicle detection, multi-object tracking, speed estimation, accident classification, multi-signal decision fusion, hazard severity assessment, and forensic reconstruction. Each stage is described in detail in the following sections.
+
+\subsection{Data Preprocessing}
+
+Data preprocessing plays a critical role in ensuring the stability and performance of downstream detection and classification models. Road surveillance videos often suffer from low resolution, compression artifacts, camera shake, motion blur, and uneven lighting conditions. If such artifacts are directly passed to learning-based models, they can significantly degrade detection accuracy and increase false positives. Therefore, the proposed system applies a comprehensive preprocessing pipeline to normalize visual inputs before inference.
+
+Initially, incoming video streams are decomposed into individual frames using a frame extraction module operating at a fixed frame rate. Each frame is resized to a consistent spatial resolution to standardize input dimensions across all modules. Noise reduction techniques are applied to suppress compression artifacts commonly present in surveillance footage. Frame stabilization algorithms are used to reduce the impact of camera vibration and environmental disturbances such as wind. Brightness and contrast normalization is performed to improve visibility in low-light or overexposed scenes, enabling better feature extraction for both detection and classification models.
+
+For model training, additional preprocessing steps are applied to improve generalization. Images are resized to $224 \times 224$ pixels to match the input requirements of the ResNet50 backbone. Data augmentation techniques, including random rotation, horizontal flipping, and brightness and contrast jitter, are applied to increase dataset diversity and reduce overfitting. All inputs are normalized using ImageNet mean and standard deviation values. The dataset follows a folder-based structure, with separate directories for accident and non-accident samples, and is split into 80 percent training data and 20 percent validation data.
+
+\subsection{Vehicle Detection}
+
+Vehicle detection is performed using a YOLOv8-based object detection model, selected for its balance between real-time performance and detection accuracy. The detector processes each preprocessed frame independently and identifies traffic participants such as cars, buses, trucks, and motorbikes. For each detected vehicle, the model outputs a bounding box, class label, and confidence score. Confidence and Intersection-over-Union (IoU) thresholds are carefully tuned to suppress weak detections while preserving recall in crowded traffic scenes.
+
+The detection stage establishes the spatial foundation of the entire system. Accurate localization of vehicles is essential for reliable tracking, collision analysis, and speed estimation. Bounding box information is used to compute spatial relationships between vehicles, such as proximity and overlap, which are critical indicators of collision events. By operating in real time, the detection module enables the system to analyze continuous video streams without significant latency, making it suitable for live traffic monitoring applications.
+
+\subsection{Multi-Object Tracking}
+
+Multi-object tracking is employed to associate detected vehicles across consecutive frames and assign persistent identities. While the detector identifies vehicles independently in each frame, the tracker links these detections temporally, forming continuous trajectories. Each vehicle is assigned a unique tracking ID that remains consistent as long as the vehicle remains visible in the scene. This temporal continuity allows the system to reason about motion patterns rather than isolated frame-level observations.
+
+Tracking in this project is designed for surveillance videos where occlusion and camera jitter are common. The tracker uses bounding-box association across frames to maintain identities, which stabilizes short-term fluctuations in detections. This stabilization is critical because downstream modules assume consistent IDs for speed estimation and collision analysis. By maintaining stable IDs, the system can measure how a specific vehicle moves, slows down, or overlaps with others through time.
+
+Tracking outputs include frame-wise positions, trajectory histories, and temporal lifespan of each vehicle. These trajectories enable the system to distinguish between different vehicles even in dense traffic and partial occlusion scenarios. Stable tracking is essential for estimating speed, detecting abnormal motion behavior, and verifying whether spatial overlap persists over time. Additionally, tracking helps filter transient false detections by enforcing temporal consistency, thereby improving the robustness of downstream analysis.
+
+\subsection{Speed Estimation}
+
+Speed estimation is derived from the displacement of tracked vehicle centers across consecutive frames. The system computes instantaneous speed as the Euclidean distance traveled between frames, expressed in pixels per frame. Although pixel-based speed is a relative measure, it serves as a highly informative indicator of motion dynamics, particularly when analyzing sudden deceleration or abrupt stops.
+
+The speed calculation uses the frame-to-frame displacement of the bounding-box center:
+
+$$
+v = \frac{\sqrt{(x_t - x_{t-1})^2 + (y_t - y_{t-1})^2}}{\Delta t}
+$$
+
+When $\Delta t$ equals one frame, the unit becomes pixels per frame. If calibration is provided, a scale factor converts pixels to meters, enabling meters per second as:
+
+$$
+v_{m/s} = v_{px/frame} \times s_{m/px} \times fps
+$$
+
+The system monitors speed profiles over time to detect abnormal patterns such as sharp speed drops, which are strong indicators of collisions or emergency braking events. Sustained low speeds and sudden deceleration both contribute to motion evidence. These motion cues are later fused with spatial overlap and classifier confidence to confirm accidents. The speed signal is also reported in forensics, providing a quantitative view of pre-impact and impact dynamics.
+
+\subsection{Accident Recognition and Severity Modeling}
+
+Accident recognition is performed using a deep convolutional neural network based on a ResNet50 backbone. The classifier analyzes visual features associated with traffic accidents, including vehicle deformation, abnormal orientations, crowding, smoke, and debris. Unlike binary classifiers, the model uses multi-task learning to simultaneously predict accident occurrence, severity class, and a continuous severity score.
+
+This multi-task structure allows the system to capture both event existence and event intensity. The severity class provides discrete categories (Normal, Minor, Moderate, Severe), while the regression head provides a continuous score in the range 0 to 100. The model is trained using a weighted loss function that balances accident detection, severity classification, and severity regression objectives:
+
+$$
+L = 0.5 L_{acc} + 0.3 L_{sev} + 0.2 L_{reg}
+$$
+
+Optimization is performed using AdamW with a learning rate of 1e-4 and weight decay of 1e-5. A ReduceLROnPlateau scheduler reduces the learning rate when validation performance plateaus. This semantic classification module complements motion-based evidence by providing high-level visual confirmation of accident events and providing an initial severity estimate that is refined by the hazard engine.
+
+\subsection{Evidence Fusion and Hazard Decision Engine}
+
+The final accident decision is produced by a multi-signal fusion mechanism that integrates outputs from detection, tracking, speed estimation, and accident classification. No single signal is considered sufficient on its own. Instead, the system requires agreement among multiple independent indicators to confirm an accident. These indicators include sudden speed drops, spatial overlap between vehicles, trajectory anomalies, bounding-box deformation, and high classifier confidence.
+
+Spatial overlap is quantified using Intersection-over-Union (IoU) between bounding boxes:
+
+$$
+IoU = \frac{Area(B_1 \cap B_2)}{Area(B_1 \cup B_2)}
+$$
+
+Temporal consistency is enforced by requiring supporting evidence to persist across multiple consecutive frames. This design minimizes false positives caused by shadows, sudden braking without collision, or camera shake. The fusion logic outputs a final binary accident decision along with a confidence score and a list of contributing evidence, ensuring transparency and explainability.
+
+Once an accident is confirmed, the hazard engine combines the accident decision and severity indicators into a structured risk level. It converts raw evidence into hazard categories suitable for reports and alerts, allowing the system to distinguish minor incidents from severe collisions. The hazard engine also prioritizes events when multiple videos or multiple collisions occur in the same sequence, ensuring that the most critical events are highlighted first.
+
+\subsection{Hazard Severity Assessment}
+
+Hazard severity assessment evaluates the risk level of a confirmed accident. The system combines semantic severity from the ResNet50 classifier with motion-based evidence such as speed drop intensity, number of involved vehicles, collision overlap, and temporal persistence. This design avoids relying only on visual appearance and ensures that physical dynamics are reflected in the final severity.
+
+Severity assessment also considers relative velocity and impact cues from the forensics pipeline, which helps differentiate minor collisions from severe crashes. For example, higher relative speeds and stronger overlap evidence increase severity, while low-speed contact with minimal overlap is classified as minor. This hybrid scoring makes the severity output more consistent with real-world expectations.
+
+The hazard output is designed for integration with intelligent transportation systems and emergency response platforms. It enables automated alert generation, traffic control interventions, and prioritization of emergency services. By converting raw evidence into actionable risk categories, the system bridges the gap between technical analysis and real-world response.
+
+\subsection{Forensic Reconstruction}
+
+The forensic reconstruction module extends the system beyond detection and classification by generating physics-based evidence suitable for post-incident investigation. Using tracked motion data, the system computes relative velocity, kinetic energy, deceleration, and estimated impact force based on classical mechanics principles. These metrics provide quantitative justification for severity assessment and injury risk estimation.
+
+Key formulas used in the forensic module include:
+
+$$
+v_{rel} = |v_1 - v_2|
+$$
+
+$$
+KE = \frac{1}{2} m v^2
+$$
+
+$$
+a = \frac{v^2}{2s}
+$$
+
+$$
+F = m a
+$$
+
+In addition to numerical analysis, the system constructs a detailed timeline of events leading up to, during, and after the collision. This timeline establishes causality and supports liability assessment by identifying pre-impact behavior such as excessive speed or abrupt trajectory changes. When enabled, the system generates a court-style forensic report that includes visual evidence, mathematical analysis, and structured conclusions, making the output suitable for legal, insurance, and regulatory use.
+
+The forensic report also summarizes vehicle speeds at key moments, highlights collision frames, and provides interpretability for non-technical stakeholders. Optional 3D visualization provides a simplified reconstruction of collision geometry to help investigators understand the spatial configuration of the event.
